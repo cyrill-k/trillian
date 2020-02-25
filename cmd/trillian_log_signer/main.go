@@ -83,7 +83,8 @@ var (
 	masterHoldInterval = flag.Duration("master_hold_interval", 60*time.Second, "Minimum interval to hold mastership for")
 	masterHoldJitter   = flag.Duration("master_hold_jitter", 120*time.Second, "Maximal random addition to --master_hold_interval")
 
-	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
+	configFile            = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
+	maxReceiveMessageSize = flag.Int("max_receive_message_size", 0, "Set the maximum receive message size for the log server")
 
 	// Profiling related flags.
 	cpuProfile = flag.String("cpuprofile", "", "If set, write CPU profile to this file")
@@ -185,12 +186,20 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	var options []grpc.ServerOption
+	// increase max receive msg size to allow listing of thousands of trees
+	if *maxReceiveMessageSize != 0 {
+		options = append(options, grpc.MaxRecvMsgSize(*maxReceiveMessageSize))
+		glog.Infof("Received max msg size option: %d", *maxReceiveMessageSize)
+	}
+
 	m := serverutil.Main{
 		RPCEndpoint:  *rpcEndpoint,
 		HTTPEndpoint: *httpEndpoint,
 		TLSCertFile:  *tlsCertFile,
 		TLSKeyFile:   *tlsKeyFile,
 		StatsPrefix:  "logsigner",
+		ExtraOptions: options,
 		DBClose:      sp.Close,
 		Registry:     registry,
 		RegisterServerFn: func(s *grpc.Server, _ extension.Registry) error {

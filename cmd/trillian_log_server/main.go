@@ -80,7 +80,8 @@ var (
 	tracingProjectID = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
 	tracingPercent   = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
 
-	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
+	configFile            = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
+	maxReceiveMessageSize = flag.Int("max_receive_message_size", 0, "Set the maximum receive message size for the log server")
 
 	// Profiling related flags.
 	cpuProfile = flag.String("cpuprofile", "", "If set, write CPU profile to this file")
@@ -110,6 +111,12 @@ func main() {
 		}
 		// Enable the server request counter tracing etc.
 		options = append(options, opts...)
+	}
+
+	// increase max receive msg size to allow listing of thousands of trees
+	if *maxReceiveMessageSize != 0 {
+		options = append(options, grpc.MaxRecvMsgSize(*maxReceiveMessageSize))
+		glog.Infof("Received max msg size option: %d", *maxReceiveMessageSize)
 	}
 
 	sp, err := storage.NewProviderFromFlags(mf)
