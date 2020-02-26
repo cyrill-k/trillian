@@ -68,8 +68,9 @@ var (
 
 	configFile = flag.String("config", "", "Config file containing flags, file contents can be overridden by command line flags")
 
-	useSingleTransaction = flag.Bool("single_transaction", false, "Experimental: use a single transaction when updating the map")
-	largePreload         = flag.Bool("large_preload_fix", true, "Experimental: work-around locking performance issues when using useSingleTransaction mode")
+	useSingleTransaction  = flag.Bool("single_transaction", false, "Experimental: use a single transaction when updating the map")
+	largePreload          = flag.Bool("large_preload_fix", true, "Experimental: work-around locking performance issues when using useSingleTransaction mode")
+	maxReceiveMessageSize = flag.Int("max_receive_message_size", 0, "Set the maximum receive message size for the log server")
 
 	// Profiling related flags.
 	cpuProfile = flag.String("cpuprofile", "", "If set, write CPU profile to this file")
@@ -96,6 +97,12 @@ func main() {
 		}
 		// Enable the server request counter tracing etc.
 		options = append(options, opts...)
+	}
+
+	// increase max receive msg size to allow listing of thousands of trees
+	if *maxReceiveMessageSize != 0 {
+		options = append(options, grpc.MaxRecvMsgSize(*maxReceiveMessageSize))
+		glog.Infof("Received max msg size option: %d", *maxReceiveMessageSize)
 	}
 
 	sp, err := server.NewStorageProviderFromFlags(mf)
