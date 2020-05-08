@@ -15,6 +15,8 @@
 package server
 
 import (
+	"net/url"
+	"fmt"
 	"database/sql"
 	"flag"
 	"sync"
@@ -32,6 +34,7 @@ var (
 	mySQLURI = flag.String("mysql_uri", "test:zaphod@tcp(127.0.0.1:3306)/test", "Connection URI for MySQL database")
 	maxConns = flag.Int("mysql_max_conns", 0, "Maximum connections to the database")
 	maxIdle  = flag.Int("mysql_max_idle_conns", -1, "Maximum idle database connections in the connection pool")
+	maxAllowedPacket = flag.Int("mysql_max_allowed_packet", 0, "Maximum allowed packet size in bytes. If set to 0, max_allowed_packet variable is fetched from the server on every connection")
 
 	mysqlOnce            sync.Once
 	mysqlOnceErr         error
@@ -50,9 +53,20 @@ type mysqlProvider struct {
 }
 
 func newMySQLStorageProvider(mf monitoring.MetricFactory) (StorageProvider, error) {
+	u, err := url.Parse(*mySQLURI)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse mysql URI: %s", err)
+	}
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse mysql URI query: %s", err)
+	}
+	q.Add("maxAllowedPacket", "0")
+	u.RawQuery = q.Encode()
+	glog.Infof("Added maxAllowedPacket option to url: '%s'", u.String())
 	mysqlOnce.Do(func() {
 		var db *sql.DB
-		db, mysqlOnceErr = mysql.OpenDB(*mySQLURI)
+		db, mysqlOnceErr = mysql.OpenDB(u.String())
 		if mysqlOnceErr != nil {
 			return
 		}
